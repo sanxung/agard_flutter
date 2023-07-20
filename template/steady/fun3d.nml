@@ -1,0 +1,49 @@
+&project
+  project_rootname = 'wing-445.6'
+/
+&raw_grid
+  grid_format   = 'vgrid'
+  patch_lumping = 'family'
+/
+&global
+  volume_animation_freq = 0
+  moving_grid           = .false.
+/
+&governing_equations
+  viscous_terms = 'turbulent'
+  eqn_type      = 'compressible'
+/
+&turbulent_diffusion_models
+  turbulence_model  = "sa"
+/
+&reference_physical_properties
+  angle_of_attack   = 0.0
+  mach_number       = mach_number_value
+  reynolds_number   = reynolds_number_value
+  temperature       = temperature_value  ! 491.4 R, 273 K
+  temperature_units = "Rankine"
+/
+&force_moment_integ_properties
+  area_reference  = 3.804
+  x_moment_length = 1.833  ! root chord
+  y_moment_length = 2.500  ! semi-span
+  x_moment_center = 0.250
+/
+&nonlinear_solver_parameters
+  time_accuracy        = 'steady'  ! time_step_nondim, subiter*s, temporal_err_* ignored
+  schedule_cfl         = 100.0  100.0  ! hold cfl number constant over iterations
+/
+&code_run_control
+  steps              = 800
+  restart_read       = 'off'  ! don't read from a restart file
+  no_restart         = .false.  ! write a restart file
+  restart_write_freq = 400
+/
+&special_parameters
+  large_angle_fix = 'on'
+/
+&massoud_output
+  n_bodies         = 1
+  nbndry(1)        = 1
+  boundary_list(1) = '3' ! note: this is the numbering after lumping
+/

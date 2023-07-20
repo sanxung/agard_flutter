@@ -1,0 +1,19 @@
+&body_definitions
+      n_moving_bodies = 1
+         body_name(1) = 'airfoil'
+  n_defining_bndry(1) = -1
+     motion_driver(1) = 'aeroelastic'
+     mesh_movement(1) = 'deform'
+/
+&aeroelastic_modal_data
+    plot_modes = .true.
+      nmode(1) = 4
+       uinf    = uinf_value  ! 973.4
+       qinf    = qinf_value  ! 75.0
+     freq(1,1) = 60.3135016
+     freq(2,1) = 239.7975647
+     freq(3,1) = 303.7804433
+     freq(4,1) = 575.1924565
+  gmass(1:4,1) = 4*0.08333
+  gvel0(1:4,1) = 4*0.1
+/
