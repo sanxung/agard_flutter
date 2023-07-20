@@ -10,7 +10,7 @@
   moving_grid           = .false.
 /
 &governing_equations
-  viscous_terms = 'turbulent'
+  viscous_terms = 'inviscid'
   eqn_type      = 'compressible'
 /
 &turbulent_diffusion_models
