@@ -30,11 +30,36 @@ def load_mode(filename):
 
     return ts, gdisp, gvel
 
-def get_damping(t, x, N=100, threshold=0.1):
+def get_damping_logdec(t, x):
+
+    prominence = np.max(x)/2.0
+    peaks = sp.signal.find_peaks(x, prominence=prominence)[0]
+    n = len(peaks) - 2
+    if n < 4:
+        return 888
+
+    z1 = x[peaks[1]]
+    z2 = x[peaks[-2]]
+    t0 = t[peaks[0]]
+    t1 = t[peaks[1]]
+    
+    # damping ratio
+    delta = (1.0/n)*np.log(z1/z2)
+    zeta = 1/np.sqrt(1+(2*np.pi/delta)**2)
+
+    # frequency
+    wn = 2*np.pi/(t1-t0)
+
+    return -1*zeta*wn
+
+def get_damping(t, x, N=100, threshold=0.1, rho=100.0):
+
     # 1. Downsample via interpolation
+    N = max(N, int(len(t)/10))
     cs = sp.interpolate.CubicSpline(t, x)
-    Z = cs(t)
-    dt = t[2] - t[1]
+    ts = np.linspace(t[0], t[-1], N)
+    Z = cs(ts)
+    dt = ts[1] - ts[0]
 
     # 2. Set pencil parameter
     L = int(N/2 - 1)
@@ -68,14 +93,13 @@ def get_damping(t, x, N=100, threshold=0.1):
 
     # 7. Eigendecomposition
     lambdas = np.linalg.eigvals(A)
-    lambdahat = lambdas[0:M]
+    lambdahat = lambdas[:M]
 
     # 8. Compute damping and frequency
     sks = np.log(lambdahat)
     alphas = np.real(sks)/dt
     omegas = np.imag(sks)/dt
-    print(alphas)
-    print(omegas)
+    alpha_ks = (1/rho) * np.log(np.sum(np.exp(rho*alphas)))
 
     # 9. Compute amplitude
     Z2 = np.zeros((L, L), dtype=complex)
@@ -83,29 +107,23 @@ def get_damping(t, x, N=100, threshold=0.1):
         Z2[:,i] = np.power(lambdas[i], np.arange(0,L), dtype=complex).T
     h = np.linalg.lstsq(Z2, Z[:L], rcond=None)
     h = h[0]
-    print(np.abs(h[:M]))
 
-    return np.max(alphas)
+    return alpha_ks
 
-params = {
-    #0.50: np.arange(125.0, 150.0, 5.0),  # mach_number: [dynamic_pressures]
-    #0.68: np.arange(115.0, 140.0, 5.0),
-    # 0.90: np.arange(85.0, 110.0, 5.0),
-    0.96: np.arange(65.0, 90.0, 5.0),
-    # 1.07: np.arange(75.0, 95.0, 5.0),
-    1.14: np.arange(205.0, 230.0, 5.0),
-    }
-modes = [1, 2, 3, 4]
+# MAIN SCRIPT -----------------------------------------------------------------
+
+machs = [0.50, 0.68, 0.90, 0.96, 1.07, 1.14]  # -, mach number
+modes = [1]
 
 main_path = os.getcwd()
 figures_path = f'{main_path:s}/figures'
 os.makedirs(figures_path, exist_ok=True)
 
-for mach, qs in params.items():
-
-    speed_index_paths = gl.glob(f'{main_path:s}/results/mach-{mach:.2f}/speed_index-*')
+# Loop through Mach numbers
+for mach in machs:
 
     # get speed indexes for this mach number
+    speed_index_paths = gl.glob(f'{main_path:s}/results/mach-{mach:.2f}/speed_index-*')
     speed_indexes = []
     for speed_index_path in speed_index_paths:
         speed_indexes.append(float(speed_index_path.split('/')[-1].split('-')[-1]))
@@ -115,19 +133,39 @@ for mach, qs in params.items():
 
         fig, ax = plt.subplots()
 
+        dampings = []
+
         # loop through speed indexes
         for speed_index_ind, speed_index in enumerate(speed_indexes):
+            print(f'mach={mach}, speed index={speed_index}, mode={mode}')
 
             speed_index_path = speed_index_paths[speed_index_ind]
-
             filename = f'{speed_index_path:s}/unsteady/aehist_body1_mode{mode:d}.dat'
+
+            # Load data
             ts, gdisp, gvel = load_mode(filename)
 
-            damping = get_damping(ts, gdisp)
-            ax.plot(ts, gdisp, label=f'{speed_index:.2f}, {damping:f}')
+            # Calculate damping
+            print(f'ts.shape:\t{ts.shape}\ngdisp.shape:\t{gdisp.shape}')
+            tend = min(3000,len(ts))
+            damping = get_damping(ts[200:tend], gdisp[200:tend], threshold=0.5, rho=10.0)
+            dampings.append(damping)
+            # damping_ld = get_damping_logdec(ts[200:tend], gdisp[200:tend])
+
+            # Plotting
+            ax.plot(ts[:3000], gdisp[:3000], label=f'{speed_index:.3f}, {damping:.3f}')
             ax.set_ylabel(f'Modal Displacement')
-            ax.legend(loc='best', title='Speed index')
+            ax.legend(loc='best', title='Speed index, damping')
             ax.set_xlabel('Time (s)')
+
+        # Calculate FSI (via interpolation)
+        cs = sp.interpolate.CubicSpline(speed_indexes, dampings)
+        speed_index_search = np.linspace(min(speed_indexes), max(speed_indexes), 100)
+        # damping_interps = np.interp(speed_index_search, speed_indexes, dampings)
+        damping_interps = cs(speed_index_search)
+        flutter_array_ind = np.absolute(damping_interps).argmin()
+        fsi = speed_index_search[flutter_array_ind]
+        ax.set_title(f'FSI = {fsi:.3f}')
 
         ax.grid()
         fig.tight_layout()

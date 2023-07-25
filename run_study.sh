@@ -39,11 +39,13 @@ if (( $OPTIND == 1 )); then
 fi
 
 # User inputs ----------------------------------------------------------------
-run_indexes=(0 1 2 3 4 5)  # indexes of mach numbers to submit for simulation
+# run_indexes=(0 1 2 3 4 5)  # indexes of mach numbers to submit for simulation
+run_indexes=(3)  # indexes of mach numbers to submit for simulation
 
 # experimental
 machs=(0.50 0.68 0.90 0.96 1.07 1.14)  # -, mach number
-speed_index_bases=(0.450 0.430 0.345 0.190 0.480 0.685)  # -, speed index
+# speed_index_bases=(0.450 0.430 0.345 0.190 0.480 0.685)  # -, speed index
+speed_index_bases=(0.450 0.430 0.345 0.240 0.480 0.685)  # -, speed index
 densities=(0.000830 0.000404 0.000193 0.000123 0.000107 0.000152)  # slug/ft^3, density
 mass_ratios=(33.465 68.753 143.920 225.820 259.590 182.740)  # -, mass ratio (structural/fluid)
 dynamic_pressures=(135.3 123.5 79.5 24.1 153.9 313.5)  # psf, dynamic pressure
