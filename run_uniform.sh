@@ -39,17 +39,14 @@ if (( $OPTIND == 1 )); then
 fi
 
 # User inputs ----------------------------------------------------------------
-# run_indexes=(0 1 2 3 4 5)  # indexes of mach numbers to submit for simulation
-run_indexes=(3)  # indexes of mach numbers to submit for simulation
 
 # experimental
-machs=(0.50 0.68 0.90 0.96 1.07 1.14)  # -, mach number
-# speed_index_bases=(0.450 0.430 0.345 0.190 0.480 0.685)  # -, speed index
-speed_index_bases=(0.450 0.430 0.345 0.240 0.480 0.685)  # -, speed index
-densities=(0.000830 0.000404 0.000193 0.000123 0.000107 0.000152)  # slug/ft^3, density
-mass_ratios=(33.465 68.753 143.920 225.820 259.590 182.740)  # -, mass ratio (structural/fluid)
-dynamic_pressures=(135.3 123.5 79.5 24.1 153.9 313.5)  # psf, dynamic pressure
-velocities=(570.9 782.0 907.7 626.2 1696.1 2030.9)  # ft/s, freestream velocity
+# machs=(0.50 0.68 0.90 0.96 1.07 1.14)  # -, mach number
+# speed_indexes=(0.15 0.30 0.45 0.60)  # -, speed index
+machs=(0.5 0.7 0.9 1.1)  # -, mach number
+speed_indexes=(0.2 0.3 0.4 0.5)  # -, speed index
+density=0.002377  # slug/ft^3, density at sea level at standard atmosphere
+mass_ratio=11.665  # -, mass ratio (structural/fluid)
 L_star=0.9165  # ft, root semi-chord
 L=L_star  # -, grid is in ft
 omega=239.3  # rad/s, first uncoupled torsional natural frequency
@@ -61,13 +58,13 @@ temperature=491.4  # R, fun3d default for inviscid (converted to Rankine)
 
 # simulation
 cores_per_run=8
-speed_index_increments=(0.9 1.0 1.1)
 run_name="wing-445.6"
 step1="steady"  # run the steady-state flow case in fun3d
 step2="modes"  # map the mode shapes from the FEA mesh to the CFD grid
 step3="unsteady"  # run the unsteady, coupled fsi flutter case in fun3d
 
 main_path=$(pwd)
+study_name="results_uniform_grid"
 
 # GET AGARD GRID -------------------------------------------------------------
 if [ "$get_grid" = true ]; then
@@ -81,8 +78,8 @@ if [ "$get_grid" = true ]; then
 fi
 
 # STEP 2 - MAP MODE SHAPES ---------------------------------------------------
-modes_path=$main_path/results/$step2
-grid_path=$main_path/results/grid
+modes_path=$main_path/$study_name/$step2
+grid_path=$main_path/$study_name/grid
 if [ "$prepare" = true ]; then
 
     # Create main results folder
@@ -104,9 +101,9 @@ if [ "$run" = true ] && [ "$run_type" == "2" ]; then  # map mode shapes
     pwd
 
     # Link to massoud template file from steady solution
-    run_ind=${run_indexes[0]}
-    speed_ind=$(echo "scale=8;${speed_index_bases[$run_ind]}*${speed_index_increments[$run_ind]}" | bc -l)  # adjust speed index by small increment
-    ln -s $main_path/results/mach-${machs[$run_ind]}/speed_index-${speed_ind}/steady/*massoud_body1.dat .
+    mach=${machs[0]}
+    speed_index=${speed_indexes[0]}
+    ln -s $main_path/$study_name/mach-${mach}/speed_index-${speed_index}/steady/*massoud_body1.dat .
 
     # Compile mode shape mapping code
     gfortran -fdefault-real-8 Mode.f
@@ -117,29 +114,18 @@ if [ "$run" = true ] && [ "$run_type" == "2" ]; then  # map mode shapes
     cd $hm
 fi
 
-for run_index in ${run_indexes[@]}; do  # loop through mach numbers
-    mach=${machs[run_index]}
+for mach in ${machs[@]}; do  # loop through mach numbers
     echo $mach
-    speed_index_base=${speed_index_bases[run_index]}
-
-    density=${densities[run_index]}
-    mass_ratio=${mass_ratios[run_index]}
-
-    for speed_index_increment in ${speed_index_increments[@]}; do  # loop through speed indexes
-        speed_index=$(echo "scale=8;$speed_index_base*$speed_index_increment" | bc -l)  # adjust speed index by small increment
+    for speed_index in ${speed_indexes[@]}; do  # loop through speed indexes
         echo "  $speed_index"
 
-        steady_path=$main_path/results/mach-${mach}/speed_index-${speed_index}/steady
-        unsteady_path=$main_path/results/mach-${mach}/speed_index-${speed_index}/unsteady
+        steady_path=$main_path/$study_name/mach-${mach}/speed_index-${speed_index}/steady
+        unsteady_path=$main_path/$study_name/mach-${mach}/speed_index-${speed_index}/unsteady
         if [ "$prepare" = true ]; then
 
             # Calculate relevant parameters
             velocity=$(echo "scale=8;$speed_index*$L_star*$omega*sqrt($mass_ratio)" | bc -l)
             dynamic_pressure=$(echo "scale=8;0.5*$density*$velocity^2" | bc -l)
-            # reynolds=$(echo "scale=8;$density*$velocity/$mu*($L_star/$L)" | bc -l)
-            # speed_of_sound=$(echo "scale=8;$velocity/$mach" | bc -l)
-            # pressure=$(echo "scale=8;$speed_of_sound^2*$density/$gamma" | bc -l)
-            # temperature=$(echo "scale=8;$pressure/($density*$R)" | bc -l)
 
             # STEP 1 - STEADY ------------------------------------------------
 

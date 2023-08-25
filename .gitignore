@@ -1,4 +1,4 @@
 grid/
-results/
-figures/
+results*/
+figures*/
 .venv/
